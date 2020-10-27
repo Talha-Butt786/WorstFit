@@ -52,9 +52,10 @@ void initmem(strategies strategy, size_t sz)
 	/* all implementations will need an actual block of memory to use */
 	mySize = sz;
 
-	if (myMemory != NULL) free(myMemory); /* in case this is not the first time initmem2 is called */
+    /* in case this is not the first time initmem2 is called */
+	if (myMemory != NULL) free(myMemory);
 
-	// traverse the whole list to free the nodes.
+	// traverse the whole list to free the connected nodes.
 	if(head!=NULL){
 	    struct memoryList *trav = head;
 	    struct memoryList *nextnode;
@@ -70,6 +71,7 @@ void initmem(strategies strategy, size_t sz)
 
 	myMemory = malloc(sz);
 
+	//initialization of a head node
 	head = (struct memoryList*) malloc(sizeof(struct memoryList)*1);
 	head->size=sz;
 	head->alloc=0;
@@ -90,6 +92,8 @@ void *mymalloc(size_t requested)
 	assert((int)myStrategy > 0);
     struct memoryList *trav;
     struct memoryList *worstNode;
+
+    //if the requested size is bigger than the largest available free memory block
     if(mem_largest_free()<requested){
         return NULL;
     }
@@ -105,6 +109,8 @@ void *mymalloc(size_t requested)
           case Worst:
               trav = head;
               int biggestSize = 0;
+
+              //travers the list to find the biggest not allocated memmory block.
               while (trav!=NULL) {
                   if (trav->size >= requested && trav->size > biggestSize && trav->alloc == 0) {
                       worstNode = trav;
@@ -126,13 +132,18 @@ void *mymalloc(size_t requested)
                    newMemoryBlock->size=requested;
                    worstNode->size=worstNode->size-requested;
                    newMemoryBlock->alloc=1;
+
+                   // if there exists a last node then connect that to the new node else don't.
                    if(worstNode->last!=NULL){
                        newMemoryBlock->last =worstNode->last;
                        worstNode->last->next = newMemoryBlock;
                    } else{
                        newMemoryBlock->last=NULL;
                    }
+
+                   //if necessary change the head to point at the new memory block.
                    if(worstNode->ptr == head->ptr) head=newMemoryBlock;
+
                    newMemoryBlock->next = worstNode;
                    newMemoryBlock->ptr = worstNode->ptr;
 
@@ -159,37 +170,36 @@ void myfree(void* block)
         if(trav->ptr==block){
             trav->alloc=0;
 
-            //check the last and merge into the current
-            //last into this
+            //if there exists last node then merge it to the current.
             if(trav->last!=NULL && trav->last->alloc==0){
                 trav->size += trav->last->size;
+                struct memoryList *lastToFree = trav->last;
                 if(trav->last->last!=NULL){
-                    struct memoryList *lastToFree = trav->last;
                     trav->last->last->next = trav;
                     trav->last = trav->last->last;
                     free(lastToFree);
                 } else{
                     trav->last=NULL;
-                    free(trav->last);
+                    free(lastToFree);
                     head = trav;
                 }
             }
 
             //now merge next node into current
             if(trav->next!=NULL && trav->next->alloc==0){
-                trav->size+= trav->next->size;
+                trav->size += trav->next->size;
+                struct memoryList *nextToFree = trav->next;
                 if(trav->next->next != NULL){
-                    struct memoryList *nextToFree = trav->next;
                     trav->next->next->last = trav;
                     trav->next = trav->next->next;
                     free(nextToFree);
                 }
                 else {
-                    free(trav->next);
+                    free(nextToFree);
                     trav->next = NULL;
                 }
             }
-            return;
+            return;  // break the loop
         }
         trav=trav->next;
     }
